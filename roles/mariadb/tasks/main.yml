@@ -1,0 +1,88 @@
+---
+# This playbook will install MariaDB and create db user and give permissions.
+- name: Creates share directory for wpcontent
+  become: true
+  file: path=/home/share/wpcontent state=directory
+
+- name: Install NFS server
+  become: true
+  package: name=nfs-utils state=latest
+
+- name: Setup NFS webserver access
+  become: true
+  lineinfile:
+    dest: /etc/exports
+    line: "/home/share/wpcontent {{ item }}/32(rw,sync,no_root_squash,no_subtree_check)"
+  with_items:
+    - "{{ hostvars.cloud.web1.openstack.private_v4 }}"
+    - "{{ hostvars.cloud.web2.openstack.private_v4 }}"
+  no_log: True
+
+- name: nfs export
+  become: true
+  shell: exportfs -a
+
+- service: name=nfs state=restarted enabled=yes
+  become: true
+
+- name: insert firewalld rule for NFS
+  become: true
+  firewalld: service=nfs permanent=true state=enabled immediate=yes
+  ignore_errors: yes
+
+- name: insert firewalld rule for mountd
+  become: true
+  firewalld: service=mountd permanent=true state=enabled immediate=yes
+  ignore_errors: yes
+
+- name: insert firewalld rule for rpc-bind
+  become: true
+  firewalld: service=rpc-bind permanent=true state=enabled immediate=yes
+  ignore_errors: yes
+
+- name: Install MariaDB package
+  yum: name={{ item }} state=installed
+  become: true
+  with_items:
+   - mariadb-server
+   - MySQL-python
+   - libselinux-python
+   - libsemanage-python
+
+- name: Configure SELinux to start mysql on any port
+  become: true
+  seboolean: name=mysql_connect_any state=true persistent=yes
+
+- name: Set the SELinux policy for mysql logs
+  become: true
+  command: semanage fcontext -a -t mysqld_log_t "/var/log/mysql.log(.*)?"
+
+- name: Create Mysql configuration file
+  become: true
+  template: src=my.cnf.j2 dest=/etc/my.cnf
+  notify:
+#  - restart mariadb
+
+- name: Create MariaDB log file
+  become: true
+  file: path=/var/log/mysqld.log state=touch owner=mysql group=mysql mode=0775
+
+- name: Start MariaDB Service
+  become: true
+  service: name=mariadb state=started enabled=yes
+
+- name: insert firewalld rule
+  become: true
+  firewalld: port=3306/tcp permanent=true state=enabled immediate=yes
+  ignore_errors: yes
+
+- name: Create WordPress database
+  become: true
+  mysql_db: name="{{ wpname }}_wpdb" state=present
+
+- name: Create WordPress database user
+  become: true
+  mysql_user: name="{{ wpname }}_wpuser" password={{ env.wp_db_password }} priv={{ wpname }}_wpdb.*:ALL host='{{ item }}' state=present
+  with_items:
+    - "{{ hostvars.cloud.web1.openstack.private_v4 }}"
+    - "{{ hostvars.cloud.web2.openstack.private_v4 }}"

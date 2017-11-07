@@ -1,0 +1,105 @@
+---
+- name: Add group "wordpress"
+  become: true
+  group: name=wordpress
+
+- name: Add user "wordpress"
+  become: true
+  user: name=wordpress group=wordpress home=/srv/wordpress/
+
+- name: Install MySQL-python package
+  yum: name={{ item }} state=installed
+  become: true
+  with_items:
+   - MySQL-python
+
+- name: Creates share directory for wpcontent
+  become: true
+  file:
+    path: /srv/wordpress/wp-content
+    state: directory
+    owner: wordpress
+    group: wordpress
+
+- name: Mount the NFS directory using private IP
+  become: true
+  mount:
+    name: /srv/wordpress/wp-content
+    src: "{{ hostvars.cloud.sqlserver.openstack.private_v4 }}:/home/share/wpcontent"
+    state: mounted
+    fstype: nfs
+  when: hostvars.cloud.sqlserver.openstack.private_v4 != ""
+
+- name: Download WordPress
+  become: true
+  get_url: url=http://wordpress.org/wordpress-{{ env.wp_version }}.tar.gz dest=/srv/wordpress-{{ env.wp_version }}.tar.gz
+           sha256sum="{{ env.wp_sha256sum }}"
+
+- name: Extract archive
+  become: true
+  unarchive:
+    src: /srv/wordpress-{{ env.wp_version }}.tar.gz
+    dest: /srv
+    remote_src: True
+    creates: /srv/wordpress/index.php
+
+- name: Fetch random salts for WordPress config
+  local_action: command curl https://api.wordpress.org/secret-key/1.1/salt/
+  register: "wp_salt"
+  become: no
+
+- name: Copy WordPress config file
+  become: true
+  template: src=wp-config.php dest=/srv/wordpress/
+
+- name: Change ownership of WordPress installation
+  become: true
+  file: path=/srv/wordpress/ owner=wordpress group=wordpress state=directory recurse=yes
+
+- name: install SEManage
+  become: true
+  yum: pkg=policycoreutils-python state=present
+
+- name: set the SELinux policy for the Wordpress directory
+  become: true
+  command: semanage fcontext -a -t httpd_sys_content_t "/srv/wordpress(/.*)?"
+
+- name: set the SELinux policy for wp-config.php
+  become: true
+  command: semanage fcontext -a -t httpd_sys_script_exec_t "/srv/wordpress/wp-config\.php"
+
+- name: set the SELinux policy for wp-content directory
+  become: true
+  command: semanage fcontext -a -t httpd_sys_rw_content_t "/srv/wordpress/wp-content(/.*)?"
+
+- name: set the SELinux policy for the *.php files
+  become: true
+  command: semanage fcontext -a -t httpd_sys_script_exec_t "/srv/wordpress/.*\.php"
+
+- name: set the SELinux policy for the Upgrade directory
+  become: true
+  command: semanage fcontext -a -t httpd_sys_rw_content_t "/srv/wordpress/wp-content/upgrade(/.*)?"
+
+- name: set the SELinux policy for the Uploads directory
+  become: true
+  command: semanage fcontext -a -t httpd_sys_rw_content_t "/srv/wordpress/wp-content/uploads(/.*)?"
+
+- name: set the SELinux policy for the wp-includes php files
+  become: true
+  command: semanage fcontext -a -t httpd_sys_script_exec_t "/srv/wordpress/wp-includes/.*\.php"
+
+- name: Configure SELinux for nfs access
+  become: true
+  seboolean: name=httpd_use_nfs state=true persistent=yes
+
+- name: Configure SELinux for network mysql access
+  become: true
+  seboolean: name=httpd_can_network_connect_db state=true persistent=yes
+
+- name: set the SELinux on all the Files
+  become: true
+  command: restorecon -Rv /srv/wordpress
+
+- name: Start php-fpm Service
+  become: true
+  service: name=php-fpm state=started enabled=yes

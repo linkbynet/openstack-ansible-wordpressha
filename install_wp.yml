@@ -1,0 +1,19 @@
+- name: Install sql server
+  hosts: "sql"
+  user: "{{ env.ssh_user }}"
+  vars_files:
+    - "vars/{{ cloud }}.yml"
+  roles:
+    - common
+    - mariadb
+
+- name: Install web servers
+  hosts: "web"
+  user: "{{ env.ssh_user }}"
+  vars_files:
+    - "vars/{{ cloud }}.yml"
+  roles:
+    - common
+    - nginx
+    - php-fpm
+    - wordpress

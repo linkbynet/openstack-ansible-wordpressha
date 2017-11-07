@@ -1,0 +1,116 @@
+---
+#ansible shade do not have for now os_lbaas... So using os_stack to create a LB...
+- name: Remove the LB 
+  os_stack:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_lbstack"
+
+- name: Remove web1 instance
+  os_server:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_web1"
+
+- name: Remove web2 instance
+  os_server:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_web2"
+
+- name: Remove sql instance
+  os_server:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_sql"
+   
+- name: Remove web1 volume
+  os_volume:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    display_name: "{{ wpname }}_web1_volume"
+
+- name: Remove web2 volume
+  os_volume:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    display_name: "{{ wpname }}_web2_volume"
+
+- name: Remove sql volume
+  os_volume:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    display_name: "{{ wpname }}_sql_volume"
+
+- name: Remove web security group
+  os_security_group:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_sgweb"
+
+- name: Remove sql security group
+  os_security_group:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_sgsql"
+
+- name: Remove dedicated router
+  ignore_errors: yes #for some reasons, re-running this task gives errors
+  os_router:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_router"
+
+- name: Remove dedicated subnet
+  os_subnet:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_subnet"
+
+- name: Remove dedicated network
+  os_network:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_net"
+  register: "net"
+
+- name: Remove keypair 
+  os_keypair:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: absent
+    name: "{{ wpname }}_key"

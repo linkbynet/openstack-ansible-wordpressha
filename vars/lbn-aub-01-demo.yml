@@ -1,0 +1,23 @@
+---
+auth: {
+  auth_url: "https://aub-01.openstack.linkbynet.com:13000/v3",
+  username: "@@USERNAME@@",
+  password: "@@PASSWORD@@",
+  project_name: "@@PROJECT@@",
+  domain_name: "Default"
+}
+
+env: {
+  validate_certs: True,
+  availability_zone: "nova",
+  region_name: "regionOne",
+  external_network: "public01",
+  ssh_allowed_range: "x.x.x.x/32",
+  centos7_image_name: "CentOS-7-x86_64",
+  ssh_user: "centos",
+  flavor: "c1.small",
+  wp_version: "4.6",
+  wp_sha256sum: "c1856cf969b1e73025ba2c681491908c3a4a6c5a2333f4531bf9bfb90f634380",
+  wp_disable_auto_update: "true",
+  wp_db_password: "{{ lookup('password', 'passwords/{{ wpname }}.txt chars=ascii_letters,digits length=10') }}"
+}

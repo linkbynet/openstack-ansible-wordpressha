@@ -1,0 +1,10 @@
+- name: Install Summary
+  hosts: cloud
+  connection: local
+  vars_files:
+    - "vars/{{ cloud }}.yml"
+  tasks:
+    - debug: 
+        msg: >-
+          Wordpress est accessible à l'url {{ hostvars.cloud.lbstack.stack.outputs[0].output_value }}
+          wordpress database password is {{ env.wp_db_password }}

@@ -1,0 +1,294 @@
+---
+- name: Create new keypair from current user's default SSH key
+  os_keypair:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_key"
+    public_key_file: "{{ '~' | expanduser }}/.ssh/id_rsa.pub"
+
+- name: Create a dedicated network
+  os_network:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_net"
+    external: False
+    shared: False
+  register: "net"
+
+- name: Create dedicated subnet
+  os_subnet:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    network_name: "{{ net.id }}"
+    name: "{{ wpname }}_subnet"
+    ip_version: "4"
+    cidr: 192.168.0.0/24
+    gateway_ip: 192.168.0.1
+    enable_dhcp: yes
+    dns_nameservers:
+      - 8.8.8.8
+  register: "{{ wpname }}_subnet"
+
+- name: Create a dedicated router
+  ignore_errors: yes #for some reasons, re-running this task gives errors
+  os_router:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_router"
+    network: "{{ env.external_network }}"
+    interfaces:
+      - "{{ wpname }}_subnet"
+
+- name: Create a new security group for webservers
+  os_security_group:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_sgweb"
+
+- name: Create a new security group rule allowing any ICMP
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgweb"
+    protocol: icmp
+    remote_ip_prefix: 0.0.0.0/0
+
+- name: Create a new security group rule allowing any HTTP
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgweb"
+    protocol: tcp
+    port_range_min: 80
+    port_range_max: 80
+    remote_ip_prefix: 0.0.0.0/0
+
+- name: Create a new security group rule allowing configured SSH connection
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgweb"
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: "{{ env.ssh_allowed_range }}"
+
+- name: Create a new security group for sqlserver
+  os_security_group:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_sgsql"
+
+- name: Create a new security group rule allowing any SQL connexions from sgweb
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgsql"
+    protocol: tcp
+    port_range_min: 3306
+    port_range_max: 3306
+    remote_group: "{{ wpname }}_sgweb"
+
+- name: Create a new security group rule allowing any NFS connexions from sgweb
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgsql"
+    protocol: tcp
+    port_range_min: 2049
+    port_range_max: 2049
+    remote_group: "{{ wpname }}_sgweb"
+
+- name: Create a new security group rule allowing any NFS connexions from sgweb
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgsql"
+    protocol: tcp
+    port_range_min: 111
+    port_range_max: 111
+    remote_group: "{{ wpname }}_sgweb"
+
+- name: Create a new security group rule allowing any NFS connexions from sgweb
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgsql"
+    protocol: tcp
+    port_range_min: 892
+    port_range_max: 892
+    remote_group: "{{ wpname }}_sgweb"
+
+- name: Create a new security group rule allowing configured SSH connection
+  os_security_group_rule:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    security_group: "{{ wpname }}_sgsql"
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: "{{ env.ssh_allowed_range }}"
+
+- name: Create web1 volume
+  os_volume:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    display_name: "{{ wpname }}_web1_volume"
+    image: "{{ env.centos7_image_name }}"
+    size: 20
+    timeout: 600
+  register: "web1_volume"
+
+- name: Create web2 volume
+  os_volume:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    display_name: "{{ wpname }}_web2_volume"
+    image: "{{ env.centos7_image_name }}"
+    size: 20
+    timeout: 600
+  register: "web2_volume"
+
+- name: Create sql volume
+  os_volume:
+    auth: "{{ auth }}"
+    region_name: "{{ env.region_name }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    display_name: "{{ wpname }}_sql_volume"
+    image: "{{ env.centos7_image_name }}"
+    size: 20
+    timeout: 600
+  register: "sql_volume"
+
+- name: Create web1 instance
+  os_server:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_web1"
+    boot_volume: "{{ web1_volume.id }}"
+    flavor: "{{ env.flavor }}"
+    security_groups: "{{ wpname }}_sgweb"
+    key_name: "{{ wpname }}_key"
+    nics:
+      - net-id: "{{ net.id }}"
+  register: "web1"
+
+- name: Create web2 instance
+  os_server:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_web2"
+    boot_volume: "{{ web2_volume.id }}"
+    flavor: "{{ env.flavor }}"
+    security_groups: "{{ wpname }}_sgweb"
+    key_name: "{{ wpname }}_key"
+    nics:
+      - net-id: "{{ net.id }}"
+  register: "web2"
+
+- name: Create sql instance
+  os_server:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_sql"
+    boot_volume: "{{ sql_volume.id }}"
+    flavor: "{{ env.flavor }}"
+    security_groups: "{{ wpname }}_sgsql"
+    key_name: "{{ wpname }}_key"
+    nics:
+      - net-id: "{{ net.id }}"
+  register: "sqlserver"
+
+- name: Add web1 to ansible host
+  add_host:
+    name: "{{ web1.openstack.public_v4 }}"
+    groups: "web"
+  when: web1.openstack.public_v4 != ""
+
+- name: Add web2 to ansible host
+  add_host:
+    name: "{{ web2.openstack.public_v4 }}"
+    groups: "web"
+  when: web2.openstack.public_v4 != ""
+
+- name: Add sql-server to ansible host
+  add_host:
+    name: "{{ sqlserver.openstack.public_v4 }}"
+    groups: "sql"
+  when: sqlserver.openstack.public_v4 != ""
+
+#ansible shade do not have for now os_lbaas... So using os_stack to create a LB...
+- name: Create a LB
+  os_stack:
+    auth: "{{ auth }}"
+    availability_zone: "{{ env.availability_zone }}"
+    validate_certs: "{{ env.validate_certs }}"
+    state: present
+    name: "{{ wpname }}_lbstack"
+    template: "./roles/create_osp_infra/templates/lb.yaml"
+    parameters:
+        web1_ip: "{{ web1.openstack.private_v4 }}"
+        web2_ip: "{{ web2.openstack.private_v4 }}"
+        subnet: "{{ wpname }}_subnet"
+        public_network: "{{ env.external_network }}"
+  register: "lbstack"
+
+- name: Show web1 IP
+  debug: var=web1.openstack.public_v4
+
+- name: Show web2 IP
+  debug: var=web2.openstack.public_v4
+
+- name: Show sql server IP
+  debug: var=sqlserver.openstack.public_v4
+
+- name: Show lbstack output
+  debug: var=lbstack.stack.outputs.output_value

@@ -1,0 +1,5 @@
+- name: Wait for server to boot
+  hosts: cloud
+  tasks:
+    - pause:
+        seconds: 30

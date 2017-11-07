@@ -1,0 +1,17 @@
+---
+- name: Setup infrastructure on OpenStack Platform
+  hosts: cloud
+  connection: local
+  vars_files:
+    - "vars/{{ cloud }}.yml"
+  roles:
+    - "{{ action }}_osp_infra"
+
+- include: wait.yml
+  when: action == "create"
+
+- include: install_wp.yml
+  when: action == "create"
+
+- include: summary.yml
+  when: action == "create"
