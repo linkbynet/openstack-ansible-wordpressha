@@ -12,14 +12,14 @@ If you want to use it for production, please review playbooks.
 
 
 ## Deploy a wordpress : 
-	```
-        ansible-playbook -i hosts -e "action=create cloud=lbn-aub-01-demo wpname=bca" site.yml
-	```
+```
+ansible-playbook -i hosts -e "action=create cloud=lbn-aub-01-demo wpname=bca" site.yml
+```
 
 ## Delete wordpress :
-	```
-        ansible-playbook -i hosts -e "action=remove cloud=lbn-aub-01-demo wpname=bca" site.yml
-	```
+```
+ansible-playbook -i hosts -e "action=remove cloud=lbn-aub-01-demo wpname=bca" site.yml
+```
 
 ## Credits : 
 * https://github.com/ansible/ansible-examples/tree/master/wordpress-nginx_rhel7
